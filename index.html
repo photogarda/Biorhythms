@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ritmi biorhythms</title>
+<meta name="theme-color" content="#c62828">
+<meta name="description" content="Personal biorhythms calculator. Works offline, data stays on your device.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+/*
+VOICE: calm, personal, a daily instrument for a family
+IDEA: an oscilloscope trace of your own body clock
+PICTURE: the wave chart itself, large, today's column lit
+COLOUR and TYPE: one chosen accent colour, four rhythm hues, system sans
+LAYOUT: phone-first app shell, top bar, content, bottom tab bar
+*/
+:root{--accent:#c62828;--accent-ink:#fff;--bg:#f6f5f3;--card:#fff;--ink:#1d1b1a;--mute:#6b6662;--line:#e4e0dc;--soft:#efece8;
+--p:#e53935;--e:#2e9e4f;--i:#3f51e0;--u:#c446c8;--pos:#2e9e4f;--neg:#e53935;color-scheme:light}
+:root.dark{--bg:#141313;--card:#1e1d1c;--ink:#f1eeeb;--mute:#a39d97;--line:#34312f;--soft:#282625;
+--p:#ff6b66;--e:#5fd17e;--i:#8592ff;--u:#e47fe6;--pos:#5fd17e;--neg:#ff6b66;color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;overflow-x:clip;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+header.top{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);padding:10px 12px 12px;padding-top:max(10px,env(safe-area-inset-top));display:flex;align-items:center;gap:8px;border-radius:0 0 18px 18px;box-shadow:0 4px 18px rgba(0,0,0,.12)}
+.who{flex:1;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.14);border:0;border-radius:14px;padding:6px 12px 6px 6px;min-height:44px;text-align:left;color:inherit}
+.who .av{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.9);color:var(--accent);display:grid;place-items:center;font-weight:800;flex:none}
+.who b{display:block;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who small{display:block;font-size:13px;opacity:.85;line-height:1.2}
+.ib{width:44px;height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.14);color:inherit;display:grid;place-items:center;flex:none}
+.ib svg{width:22px;height:22px}
+main{flex:1;padding:14px 12px}
+h1{font-size:24px;line-height:1.15;margin:4px 4px 12px;text-wrap:balance}
+h2{font-size:18px;margin:18px 4px 8px}
+.card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.muted{color:var(--mute)}
+.small{font-size:13px}
+.datebar{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.datebar .lbl{flex:1;text-align:center;font-weight:700;font-size:18px;position:relative;min-height:44px;display:grid;place-items:center;border-radius:12px}
+.datebar .lbl input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.nb{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none}
+.nb svg{width:20px;height:20px}
+.pill{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:0 14px;min-height:36px;font-size:14px;font-weight:600}
+.pill.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.fig{position:relative;height:min(62vh,460px);min-height:300px;touch-action:pan-y;user-select:none}
+.fig.mini{height:220px;min-height:200px}
+.fig svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.rows{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;border:0;background:var(--soft);border-radius:14px;padding:10px 12px;text-align:left;width:100%}
+.row.off{opacity:.45}
+.row .dot{width:12px;height:12px;border-radius:50%;grid-row:span 2}
+.row .top{display:flex;justify-content:space-between;gap:8px;font-weight:600;flex-wrap:wrap}
+.row .top span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden;grid-column:2}
+.bar i{display:block;height:100%;border-radius:8px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--neg);color:#fff;vertical-align:1px;margin-left:4px}
+.overall{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 4px 0;flex-wrap:wrap}
+.big{font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:600}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--neg)}
+.btn svg{width:18px;height:18px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.field{display:grid;gap:4px;margin-bottom:10px}
+.field label{font-size:14px;font-weight:600;color:var(--mute)}
+.field input,.field select,textarea{min-height:44px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:8px 12px;font-size:16px;width:100%}
+textarea{min-height:140px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:10px 4px;border-top:1px solid var(--line);cursor:pointer}
+.opt:first-of-type{border-top:0}
+.opt input{width:22px;height:22px;margin:1px 0 0;accent-color:var(--accent);flex:none}
+.opt span small{display:block;color:var(--mute);font-size:13px}
+.swatches{display:flex;gap:10px;flex-wrap:wrap;padding:4px 0}
+.sw{width:44px;height:44px;border-radius:50%;border:3px solid transparent;box-shadow:inset 0 0 0 3px var(--card)}
+.sw.on{border-color:var(--ink)}
+.seg{display:flex;background:var(--soft);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;min-height:40px;border:0;border-radius:10px;background:none;font-weight:600;font-size:14px}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.person{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.person:first-child{border-top:0}
+.person .main{flex:1;border:0;background:none;text-align:left;padding:4px 0;min-height:44px}
+.person .main b{display:block}
+.person.sel .main b::after{content:" ✓";color:var(--accent)}
+.ritm{border-left:4px solid;padding:8px 12px;margin:8px 0;background:var(--soft);border-radius:0 12px 12px 0}
+.ritm h3{margin:0;font-size:16px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ritm p{margin:4px 0 0}
+.note{margin:12px 0 0}
+.note h3{margin:0 0 4px;font-size:16px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .wd{font-size:12px;text-align:center;color:var(--mute);font-weight:700;padding-bottom:2px}
+.cal button{aspect-ratio:1/1.05;border:0;border-radius:10px;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;font-weight:600;font-size:15px;position:relative;background:var(--soft)}
+.cal button.today{box-shadow:inset 0 0 0 2px var(--ink)}
+.cal button.sel{box-shadow:inset 0 0 0 3px var(--accent)}
+.cal .dots{display:flex;gap:2px;min-height:7px}
+.cal .dots i{width:7px;height:7px;border-radius:50%}
+.cal .pc{font-size:11px;font-weight:500;color:var(--mute)}
+.list{display:grid;gap:6px}
+.li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.li:first-child{border-top:0}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{font-size:12px;font-weight:700;color:#fff;border-radius:999px;padding:1px 8px}
+.menu{display:grid}
+.menu a{display:flex;align-items:center;gap:14px;padding:12px 4px;min-height:52px;color:inherit;text-decoration:none;border-top:1px solid var(--line);font-weight:600}
+.menu a:first-child{border-top:0}
+.menu svg{width:22px;height:22px;color:var(--accent);flex:none}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs div{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 6px;color:var(--mute);text-decoration:none;font-size:12px;font-weight:600;min-height:60px}
+nav.tabs a svg{width:24px;height:24px}
+nav.tabs a.on{color:var(--accent)}
+.modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.modal .card{width:100%;max-width:520px;max-height:88vh;overflow:auto;margin:0;padding:18px}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:30;font-weight:600;font-size:14px;max-width:90vw;text-align:center}
+.empty{text-align:center;padding:24px 12px}
+.empty svg{width:120px;height:60px;color:var(--accent)}
+.help p,.help li{max-width:68ch}
+.help h2{margin-top:22px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-variant-numeric:tabular-nums}
+.kv dt{color:var(--mute)}.kv dd{margin:0;text-align:right;font-weight:600}
+.hide{display:none!important}
+@media (prefers-reduced-motion:no-preference){main>*{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(6px)}}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="who" id="who" aria-label="Choose person"><span class="av" id="whoAv">?</span><span><b id="whoName">-</b><small id="whoSub"></small></span></button>
+    <button class="ib" id="btnToday" aria-label="Today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg></button>
+    <button class="ib" id="btnShare" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
+  </header>
+  <main id="view"></main>
+</div>
+<nav class="tabs"><div id="tabs"></div></nav>
+<input type="file" id="fileIn" accept=".json,application/json,text/plain" class="hide">
+<script>
+{
+/* ---------- i18n ---------- */
+const T={
+en:{
+ app:'Ritmi',tagline:'Personal biorhythms',
+ tabs:{chart:'Chart',day:'Today',calendar:'Calendar',pair:'Together',more:'More'},
+ r:['Physical','Emotional','Intellectual','Intuitive'],rs:['Phys','Emo','Int','Intu'],
+ overall:'Overall',critical:'Critical',criticalDay:'Critical day',rising:'rising',falling:'falling',
+ days:'days',daysAlive:'days since birth',age:'Age',years:'years',
+ months:['January','February','March','April','May','June','July','August','September','October','November','December'],
+ mon:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+ wd:['Mo','Tu','We','Th','Fr','Sa','Su'],wdl:['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
+ cyc:(d,p)=>`day ${d} of ${p}`,
+ st:{high:'Peak',pos:'Positive phase',neg:'Negative phase',low:'Low point',crit:'Critical day'},
+ noPeople:'Add the first person to see their biorhythms.',addPerson:'Add person',editPerson:'Edit person',
+ name:'Name',birth:'Date of birth',save:'Save',cancel:'Cancel',del:'Delete',edit:'Edit',select:'Select',
+ delQ:n=>`Delete ${n}? This cannot be undone.`,people:'People',
+ needName:'Please enter a name and a valid birth date.',
+ forecastFor:(n,d)=>`${n}, ${d}`,overallState:'Overall state',
+ tapHint:'Tap a day to select it, swipe to move. Tap a rhythm to hide or show it.',
+ trendOf:(s,t)=>`${s}, ${t}`,
+ prevWeek:'Previous week',nextWeek:'Next week',prevDay:'Previous day',nextDay:'Next day',
+ calTitle:'Calendar',critIn:m=>`Critical days in ${m}`,noCrit:'No critical days this month.',
+ bestDays:'Best days',lowDays:'Quietest days',monthCurve:'Month at a glance',
+ pairTitle:'Compatibility',first:'First person',second:'Second person',needTwo:'Add at least two people to compare.',
+ pairNow:'On the selected day',
+ compat:['Opposite rhythms. You balance each other: when one of you is low, the other is often high.','Partly in tune. Expect days when one of you is up while the other is down.','A good match. You share more ups and downs than not.','Very much in tune. Your rhythms rise and fall largely together.'],
+ more:'More',settings:'Settings',help:'Help',about:'About',backup:'Back up people',restore:'Restore from backup',icsExport:'Add critical days to my calendar',
+ lang:'Language',algo:'Calculation method',
+ algos:[['std','Standard','Whole days since birth, periods of 23, 28, 33 and 38 days. Used by most biorhythm apps.'],['alt','Midday count','Counts from the middle of the day (days + 0.5). Matches the setting you used in your old app.'],['precise','Precise periods','Fractional periods: 23.688437, 28.426125, 33.163812 and 37.9015 days.']],
+ theme:'Colour',mode:'Appearance',modes:{light:'Light',dark:'Dark',system:'System'},
+ startToday:'Open on today\'s date',startTodayS:'If off, the app reopens on the last date you viewed.',
+ showR:'Rhythms shown',showO:'Overall bars on the chart',
+ notif:'Daily notification',notifS:'Best effort. Works on Android in Chrome when the app is installed to the home screen; the phone decides the exact time. For guaranteed reminders, add critical days to your calendar.',
+ notifOn:'Notifications turned on.',notifNo:'Notifications are not available here.',notifDenied:'Notifications were blocked. You can allow them in the browser settings.',
+ notifPartial:'Notifications allowed, but this browser cannot run daily background checks. You will get a notice when you open the app.',
+ bkTitle:'Backup',bkText:'Save this file somewhere safe (for example Google Drive). You can restore it on any phone.',download:'Download file',copy:'Copy text',share:'Share',copied:'Copied.',
+ rsTitle:'Restore',rsText:'Choose a backup file, or paste the backup text below.',chooseFile:'Choose file',
+ rsAdd:'Add to my list',rsReplace:'Replace my list',rsBad:'That does not look like a backup file.',rsDone:n=>`Restored ${n} people.`,
+ icsTitle:'Critical days calendar',icsText:p=>`Critical days for ${p} for the next 12 months, as a calendar file. Open it on your phone and add the events to your calendar.`,
+ installTip:'Install: open the browser menu and choose "Add to Home screen" or "Install app".',
+ version:'Version',aboutText:'A personal biorhythms calculator made for Kaspars and family. Everything is stored only on this device; nothing is sent anywhere. Biorhythm theory is not scientifically proven. Treat it as a fun reflection tool, not as advice.',
+ shareText:(n,d)=>`Biorhythms for ${n}, ${d}`,shared:'Copied to clipboard.',
+ offline:'Works offline',
+ sum:['A low day. Treat yourself gently, avoid risks and save big efforts for a better day.','A quieter day. Keep plans realistic, finish what is already started and leave room for rest.','A mixed day. Some rhythms help and others hold you back, so match each task to the energy you have.','A good, steady day. Lean on your stronger rhythms and you will get plenty done.','An excellent day. Most of your rhythms are working for you, so aim high and get the important things done.'],
+ multi:'Two or more rhythms are switching at once today. A day to slow down and be extra careful.',
+ tx:{
+  p:{high:'Your body is near its peak. A good day for sport, heavy chores, travel or anything that needs stamina.',pos:'Energy is available. Keep moving and use it for practical tasks.',neg:'Stamina is lower than usual. Pace yourself, rest between efforts and go to bed on time.',low:'Physical reserves are at their lowest. Choose light activity, warmth and sleep over records.',crit:'Your physical rhythm is switching phase. Coordination may be off, so take extra care on the road, with tools and on stairs.'},
+  e:{high:'Your mood is bright and open. A great day for meeting people, making up, celebrating or creative work.',pos:'You feel balanced and friendly. Conversations go smoothly.',neg:'Feelings sit closer to the surface. Avoid big arguments and give yourself small comforts.',low:'Emotional reserves are low. Try not to take things personally, and postpone hard talks if you can.',crit:'Your emotional rhythm is switching phase. Moods may swing quickly, so count to ten before you react.'},
+  i:{high:'Your mind is sharp. Take on exams, planning, negotiations and tricky problems.',pos:'Thinking is clear. A good day to learn and to make decisions.',neg:'Concentration takes more effort. Review and tidy up rather than starting something complex.',low:'Mental energy is low. Use checklists, double-check numbers and leave important signatures for later.',crit:'Your intellectual rhythm is switching phase. Small slips are more likely, so read twice before you send or sign.'},
+  u:{high:'Your inner voice is strong. Trust first impressions and notice the small signals around you.',pos:'Hunches tend to be right today. Let them guide the small choices.',neg:'Gut feelings are less reliable. Back them up with facts before acting.',low:'Intuition is quiet. Lean on proven routines and on advice from people you trust.',crit:'Your intuitive rhythm is switching phase. Mixed signals are likely, so sleep on decisions that matter.'}
+ },
+ helpHtml:`<h2>What are biorhythms?</h2><p>Biorhythm theory says that from the day you are born, a few steady cycles run through your life: physical (23 days), emotional (28 days), intellectual (33 days) and intuitive (38 days). Each one is drawn as a sine wave between +1 and −1.</p>
+<p><b>Value</b> = sin(2π × days since birth ÷ period). The percentage is the same value on a 0 to 100% scale, where 50% is the middle line. <b>Overall state</b> is the average of the four percentages.</p>
+<h2>Critical days</h2><p>A rhythm is critical on the day its wave crosses the middle line. The theory says these switching days are less stable than the highs and lows. They are marked with a ring on the chart and a dot in the calendar.</p>
+<h2>Calculation methods</h2><ul><li><b>Standard</b>: whole days since birth.</li><li><b>Midday count</b>: days + 0.5, as if counted from midday. Some birth dates match better with it.</li><li><b>Precise periods</b>: fractional period lengths 23.688437, 28.426125, 33.163812 and 37.9015 days.</li></ul>
+<h2>Compatibility</h2><p>For each rhythm the app compares where two people are in their cycles. Born a whole number of cycles apart means 100% (the waves move together); born half a cycle apart means 0% (mirror images). The overall score is the average of the four.</p>
+<h2>Chart</h2><p>The chart shows 15 days around the selected date. Tap a day to select it, swipe sideways to move, and tap a rhythm below the chart to hide or show it. The soft columns are the overall state for each day.</p>
+<h2>Install on your phone</h2><p>Open the app in Chrome (Android) or Safari (iPhone), open the browser menu and choose "Add to Home screen" or "Install app". After that it opens like a normal app and works without internet.</p>
+<h2>Backups</h2><p>Your people are stored only on this device. Use <b>More → Back up people</b> to save a file, and <b>Restore from backup</b> to load it on another phone.</p>
+<h2>Reminders</h2><p>The daily notification is best effort because web apps cannot schedule exact alarms. For dependable reminders, use <b>Add critical days to my calendar</b>, which creates calendar events your phone will remind you about.</p>`
+},
+lv:{
+ app:'Ritmi',tagline:'Personīgie bioritmi',
+ tabs:{chart:'Grafiks',day:'Diena',calendar:'Kalendārs',pair:'Saderība',more:'Vairāk'},
+ r:['Fiziskais','Emocionālais','Intelektuālais','Intuitīvais'],rs:['Fiz','Emo','Int','Intu'],
+ overall:'Kopējais',critical:'Kritisks',criticalDay:'Kritiskā diena',rising:'pieaug',falling:'samazinās',
+ days:'dienas',daysAlive:'dienas kopš dzimšanas',age:'Vecums',years:'gadi',
+ months:['janvāris','februāris','marts','aprīlis','maijs','jūnijs','jūlijs','augusts','septembris','oktobris','novembris','decembris'],
+ mon:['jan','feb','mar','apr','mai','jūn','jūl','aug','sep','okt','nov','dec'],
+ wd:['Pr','Ot','Tr','Ce','Pk','Se','Sv'],wdl:['pirmdiena','otrdiena','trešdiena','ceturtdiena','piektdiena','sestdiena','svētdiena'],
+ cyc:(d,p)=>`${d}. diena no ${p}`,
+ st:{high:'Virsotne',pos:'Pozitīvā fāze',neg:'Negatīvā fāze',low:'Zemākais punkts',crit:'Kritiskā diena'},
+ noPeople:'Pievienojiet pirmo cilvēku, lai redzētu viņa bioritmus.',addPerson:'Pievienot cilvēku',editPerson:'Labot cilvēku',
+ name:'Vārds',birth:'Dzimšanas datums',save:'Saglabāt',cancel:'Atcelt',del:'Dzēst',edit:'Labot',select:'Izvēlēties',
+ delQ:n=>`Dzēst ${n}? To nevarēs atsaukt.`,people:'Cilvēki',
+ needName:'Lūdzu, ievadiet vārdu un derīgu dzimšanas datumu.',
+ forecastFor:(n,d)=>`${n}, ${d}`,overallState:'Kopējais stāvoklis',
+ tapHint:'Pieskarieties dienai, lai to izvēlētos, velciet, lai pārvietotos. Pieskarieties ritmam, lai to paslēptu vai parādītu.',
+ trendOf:(s,t)=>`${s}, ${t}`,
+ prevWeek:'Iepriekšējā nedēļa',nextWeek:'Nākamā nedēļa',prevDay:'Iepriekšējā diena',nextDay:'Nākamā diena',
+ calTitle:'Kalendārs',critIn:m=>`Kritiskās dienas: ${m}`,noCrit:'Šomēnes kritisko dienu nav.',
+ bestDays:'Labākās dienas',lowDays:'Klusākās dienas',monthCurve:'Mēnesis vienā skatā',
+ pairTitle:'Saderība',first:'Pirmais cilvēks',second:'Otrais cilvēks',needTwo:'Lai salīdzinātu, pievienojiet vismaz divus cilvēkus.',
+ pairNow:'Izvēlētajā dienā',
+ compat:['Pretēji ritmi. Jūs viens otru līdzsvarojat: kad vienam ir kritums, otram bieži ir kāpums.','Daļēji saskaņā. Būs dienas, kad viens ir augšā, bet otrs lejā.','Laba saderība. Jums vairāk kopīgu kāpumu un kritumu nekā atšķirīgu.','Ļoti saskaņā. Jūsu ritmi kāpj un krīt lielākoties kopā.'],
+ more:'Vairāk',settings:'Iestatījumi',help:'Palīdzība',about:'Par lietotni',backup:'Saglabāt cilvēku kopiju',restore:'Atjaunot no kopijas',icsExport:'Pievienot kritiskās dienas kalendāram',
+ lang:'Valoda',algo:'Aprēķina metode',
+ algos:[['std','Standarta','Veselas dienas kopš dzimšanas, periodi 23, 28, 33 un 38 dienas. To lieto lielākā daļa bioritmu lietotņu.'],['alt','Skaitīšana no pusdienlaika','Skaita no dienas vidus (dienas + 0,5). Atbilst iestatījumam, ko lietojāt vecajā lietotnē.'],['precise','Precīzie periodi','Daļskaitļu periodi: 23,688437, 28,426125, 33,163812 un 37,9015 dienas.']],
+ theme:'Krāsa',mode:'Izskats',modes:{light:'Gaišs',dark:'Tumšs',system:'Kā sistēmā'},
+ startToday:'Atvērt ar šodienas datumu',startTodayS:'Ja izslēgts, lietotne atveras ar pēdējo skatīto datumu.',
+ showR:'Rādītie ritmi',showO:'Kopējā stāvokļa stabiņi grafikā',
+ notif:'Ikdienas paziņojums',notifS:'Pēc iespējas. Darbojas Android tālrunī pārlūkā Chrome, ja lietotne ir instalēta sākuma ekrānā; precīzo laiku izvēlas tālrunis. Drošiem atgādinājumiem pievienojiet kritiskās dienas kalendāram.',
+ notifOn:'Paziņojumi ieslēgti.',notifNo:'Paziņojumi šeit nav pieejami.',notifDenied:'Paziņojumi ir bloķēti. Tos var atļaut pārlūka iestatījumos.',
+ notifPartial:'Paziņojumi atļauti, bet šis pārlūks nevar veikt ikdienas pārbaudes fonā. Paziņojumu saņemsiet, atverot lietotni.',
+ bkTitle:'Rezerves kopija',bkText:'Saglabājiet šo failu drošā vietā (piemēram, Google Drive). To var atjaunot jebkurā tālrunī.',download:'Lejupielādēt failu',copy:'Kopēt tekstu',share:'Kopīgot',copied:'Nokopēts.',
+ rsTitle:'Atjaunošana',rsText:'Izvēlieties rezerves kopijas failu vai ielīmējiet tā tekstu zemāk.',chooseFile:'Izvēlēties failu',
+ rsAdd:'Pievienot sarakstam',rsReplace:'Aizstāt sarakstu',rsBad:'Tas neizskatās pēc rezerves kopijas.',rsDone:n=>`Atjaunoti ${n} cilvēki.`,
+ icsTitle:'Kritisko dienu kalendārs',icsText:p=>`Kritiskās dienas (${p}) nākamajiem 12 mēnešiem kā kalendāra fails. Atveriet to tālrunī un pievienojiet notikumus kalendāram.`,
+ installTip:'Instalēšana: atveriet pārlūka izvēlni un izvēlieties "Pievienot sākuma ekrānam" vai "Instalēt lietotni".',
+ version:'Versija',aboutText:'Personīgais bioritmu kalkulators Kasparam un ģimenei. Visi dati glabājas tikai šajā ierīcē un netiek nekur sūtīti. Bioritmu teorija nav zinātniski pierādīta. Uztveriet to kā interesantu pārdomu rīku, nevis padomu.',
+ shareText:(n,d)=>`Bioritmi: ${n}, ${d}`,shared:'Nokopēts starpliktuvē.',
+ offline:'Darbojas bezsaistē',
+ sum:['Zema diena. Izturieties pret sevi saudzīgi, izvairieties no riska un lielās lietas atlieciet uz labāku dienu.','Klusāka diena. Plānojiet reāli, pabeidziet iesākto un atstājiet laiku atpūtai.','Jaukta diena. Daži ritmi palīdz, citi bremzē, tāpēc pielāgojiet katru darbu pieejamajai enerģijai.','Laba, stabila diena. Balstieties uz saviem stiprākajiem ritmiem, un paveiksiet daudz.','Lieliska diena. Lielākā daļa ritmu strādā jūsu labā, tāpēc tiecieties augstu un paveiciet svarīgāko.'],
+ multi:'Šodien vairāki ritmi maina fāzi vienlaikus. Šī ir diena, kad palēnināt tempu un būt īpaši uzmanīgiem.',
+ tx:{
+  p:{high:'Ķermenis ir tuvu savai virsotnei. Laba diena sportam, smagākiem darbiem, ceļošanai un visam, kam vajag izturību.',pos:'Enerģijas pietiek. Kustieties un izmantojiet to praktiskiem darbiem.',neg:'Izturība ir mazāka nekā parasti. Sadaliet spēkus, atpūtieties starp darbiem un laikus ejiet gulēt.',low:'Fiziskās rezerves ir viszemākajā punktā. Izvēlieties vieglas aktivitātes, siltumu un miegu, nevis rekordus.',crit:'Fiziskais ritms maina fāzi. Koordinācija var pievilt, tāpēc esiet īpaši uzmanīgi uz ceļa, ar instrumentiem un uz kāpnēm.'},
+  e:{high:'Garastāvoklis ir gaišs un atvērts. Lieliska diena tikšanās reizēm, salīgšanai, svinībām vai radošam darbam.',pos:'Jūtaties līdzsvaroti un draudzīgi. Sarunas rit viegli.',neg:'Jūtas ir tuvāk virspusei. Izvairieties no lieliem strīdiem un sagādājiet sev nelielus priekus.',low:'Emocionālās rezerves ir zemas. Centieties neuztvert visu personīgi un, ja iespējams, atlieciet smagas sarunas.',crit:'Emocionālais ritms maina fāzi. Noskaņojums var ātri mainīties, tāpēc pirms reaģēšanas saskaitiet līdz desmit.'},
+  i:{high:'Prāts ir ass. Ķerieties pie eksāmeniem, plānošanas, pārrunām un sarežģītiem uzdevumiem.',pos:'Domas ir skaidras. Laba diena mācībām un lēmumu pieņemšanai.',neg:'Koncentrēties ir grūtāk. Labāk pārskatiet un sakārtojiet, nevis sāciet ko sarežģītu.',low:'Garīgā enerģija ir zema. Lietojiet sarakstus, pārbaudiet skaitļus un svarīgus parakstus atlieciet uz vēlāku laiku.',crit:'Intelektuālais ritms maina fāzi. Sīkas kļūdas ir ticamākas, tāpēc pirms sūtīšanas vai parakstīšanas izlasiet divreiz.'},
+  u:{high:'Iekšējā balss ir spēcīga. Uzticieties pirmajam iespaidam un pamaniet sīkos signālus apkārt.',pos:'Nojautas šodien bieži izrādās pareizas. Ļaujiet tām vadīt mazās izvēles.',neg:'Nojautas ir mazāk uzticamas. Pirms rīkojaties, pārbaudiet tās ar faktiem.',low:'Intuīcija ir klusa. Paļaujieties uz pārbaudītiem paradumiem un uzticamu cilvēku padomu.',crit:'Intuitīvais ritms maina fāzi. Signāli var būt pretrunīgi, tāpēc svarīgus lēmumus atlieciet līdz rītam.'}
+ },
+ helpHtml:`<h2>Kas ir bioritmi?</h2><p>Bioritmu teorija apgalvo, ka kopš dzimšanas dienas cilvēka dzīvē darbojas vairāki vienmērīgi cikli: fiziskais (23 dienas), emocionālais (28 dienas), intelektuālais (33 dienas) un intuitīvais (38 dienas). Katrs no tiem ir sinusoīda starp +1 un −1.</p>
+<p><b>Vērtība</b> = sin(2π × dienas kopš dzimšanas ÷ periods). Procenti ir tā pati vērtība skalā no 0 līdz 100%, kur 50% ir viduslīnija. <b>Kopējais stāvoklis</b> ir četru procentu vidējais.</p>
+<h2>Kritiskās dienas</h2><p>Ritms ir kritisks dienā, kad tā vilnis šķērso viduslīniju. Saskaņā ar teoriju šīs pārslēgšanās dienas ir mazāk stabilas nekā kāpumi un kritumi. Grafikā tās iezīmētas ar apli, kalendārā ar punktu.</p>
+<h2>Aprēķina metodes</h2><ul><li><b>Standarta</b>: veselas dienas kopš dzimšanas.</li><li><b>Skaitīšana no pusdienlaika</b>: dienas + 0,5. Dažiem dzimšanas datumiem tā atbilst labāk.</li><li><b>Precīzie periodi</b>: daļskaitļu periodi 23,688437, 28,426125, 33,163812 un 37,9015 dienas.</li></ul>
+<h2>Saderība</h2><p>Katram ritmam lietotne salīdzina, kurā cikla vietā ir divi cilvēki. Ja dzimšanas dienas atšķiras par veselu ciklu skaitu, saderība ir 100% (viļņi iet kopā); ja par pusciklu, tā ir 0% (spoguļattēli). Kopējā saderība ir četru vidējais.</p>
+<h2>Grafiks</h2><p>Grafikā redzamas 15 dienas ap izvēlēto datumu. Pieskarieties dienai, lai to izvēlētos, velciet uz sāniem, lai pārvietotos, un pieskarieties ritmam zem grafika, lai to paslēptu vai parādītu. Gaišie stabiņi rāda katras dienas kopējo stāvokli.</p>
+<h2>Instalēšana tālrunī</h2><p>Atveriet lietotni pārlūkā Chrome (Android) vai Safari (iPhone), atveriet izvēlni un izvēlieties "Pievienot sākuma ekrānam" vai "Instalēt lietotni". Pēc tam tā atveras kā parasta lietotne un darbojas bez interneta.</p>
+<h2>Rezerves kopijas</h2><p>Cilvēku saraksts glabājas tikai šajā ierīcē. Izmantojiet <b>Vairāk → Saglabāt cilvēku kopiju</b>, lai saglabātu failu, un <b>Atjaunot no kopijas</b>, lai to ielādētu citā tālrunī.</p>
+<h2>Atgādinājumi</h2><p>Ikdienas paziņojums darbojas pēc iespējas, jo tīmekļa lietotnes nevar ieplānot precīzus modinātājus. Drošiem atgādinājumiem izmantojiet <b>Pievienot kritiskās dienas kalendāram</b>, kas izveido kalendāra notikumus ar tālruņa atgādinājumiem.</p>`
+}};
+const VERSION='1.0.0';
+const THEMES={red:'#c62828',orange:'#e65100',green:'#2e7d32',purple:'#7b1fa2',indigo:'#3949ab',teal:'#00796b'};
+const KEYS=['p','e','i','u'];
+const PER={std:[23,28,33,38],precise:[23.688437,28.426125,33.163812,37.9015]};
+
+/* ---------- state ---------- */
+const LS='ritmi.v1';
+const defSettings={lang:(navigator.language||'').toLowerCase().startsWith('lv')?'lv':'en',algo:'alt',theme:'red',mode:'system',startToday:true,lastDate:null,show:{p:true,e:true,i:true,u:true,o:true},notify:false,pairA:null,pairB:null};
+let S={people:[],activeId:null,settings:{...defSettings}};
+try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);S.people=Array.isArray(o.people)?o.people:[];S.activeId=o.activeId||null;S.settings={...defSettings,...(o.settings||{}),show:{...defSettings.show,...((o.settings||{}).show||{})}}}}catch(e){}
+function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}mirrorForSW()}
+const t=()=>T[S.settings.lang]||T.en;
+
+/* ---------- date + math ---------- */
+const dn=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||'');return m?Math.round(Date.UTC(+m[1],m[2]-1,+m[3])/864e5):null};
+const isoOf=n=>new Date(n*864e5).toISOString().slice(0,10);
+const todayN=()=>{const d=new Date();return Math.round(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5)};
+const ymd=n=>{const d=new Date(n*864e5);return[d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),(d.getUTCDay()+6)%7]};
+const pad=x=>String(x).padStart(2,'0');
+const fmtShort=n=>{const[y,m,d]=ymd(n);return`${pad(d)}.${pad(m+1)}.${y}`};
+const fmtLong=n=>{const[y,m,d,w]=ymd(n),L=t();return S.settings.lang==='lv'?`${L.wdl[w]}, ${y}. gada ${d}. ${L.months[m]}`:`${L.wdl[w]}, ${d} ${L.months[m]} ${y}`};
+const fmtMed=n=>{const[y,m,d]=ymd(n),L=t();return S.settings.lang==='lv'?`${d}. ${L.mon[m]} ${y}`:`${d} ${L.mon[m]} ${y}`};
+const periods=()=>S.settings.algo==='precise'?PER.precise:PER.std;
+const offset=()=>S.settings.algo==='alt'?.5:0;
+function calc(birthN,dayN){
+ const n=dayN-birthN,tt=n+offset(),P=periods();
+ const r=KEYS.map((k,j)=>{
+  const p=P[j],ph=2*Math.PI*tt/p,v=Math.sin(ph),half=p/2,eps=1e-9;
+  const m=Math.ceil((tt-.5)/half-eps),crit=m*half<tt+.5-eps;
+  const pct=(v+1)*50,rising=Math.cos(ph)>0;
+  let st=crit?'crit':v>=.9?'high':v<=-.9?'low':v>0?'pos':'neg';
+  const cyc=Math.floor(((tt%p)+p)%p);
+  return{k,v:Math.abs(v)<5e-10?0:v,pct,crit,rising,st,cyc,p};
+ });
+ const overall=r.reduce((a,x)=>a+x.pct,0)/4;
+ return{n,r,overall};
+}
+function compat(bA,bB){const P=periods();const r=P.map(p=>{let f=(((bB-bA)%p)+p)%p/p;return 100*(1-2*Math.min(f,1-f))});return{r,overall:r.reduce((a,b)=>a+b,0)/4}}
+const sumIdx=o=>o>=75?4:o>=55?3:o>=45?2:o>=25?1:0;
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const col=k=>`var(--${k})`;
+const active=()=>S.people.find(p=>p.id===S.activeId)||S.people[0]||null;
+let sel=S.settings.startToday||!S.settings.lastDate?todayN():(dn(S.settings.lastDate)??todayN());
+let calMonth=null;
+function setSel(n){sel=n;S.settings.lastDate=isoOf(n);persist();render()}
+function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+const ICON={
+ chart:'<path d="M3 12c2.5-7 5.5-7 8 0s5.5 7 8 0" /><path d="M3 20h18"/>',
+ day:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+ calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+ pair:'<circle cx="9" cy="8" r="3.2"/><circle cx="16.5" cy="9" r="2.6"/><path d="M3 19c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M14.5 14.3c2.6-.4 5 .9 5.8 4.2"/>',
+ more:'<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+ people:'<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.8-3.4 3.2-5 6-5s5.2 1.6 6 5M18 8v6M15 11h6"/>',
+ save:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',load:'<path d="M12 15V3M7 8l5-5 5 5M4 20h16"/>',
+ cal2:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+ help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+ left:'<path d="m15 18-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',dleft:'<path d="m11 18-6-6 6-6M18 18l-6-6 6-6"/>',dright:'<path d="m6 18 6-6-6-6M13 18l6-6-6-6"/>'
+};
+const ic=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
+
+/* ---------- theme ---------- */
+const mq=matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){
+ const s=S.settings,root=document.documentElement;
+ let dark=s.mode==='dark'||(s.mode==='system'&&(root.dataset.theme?root.dataset.theme==='dark':mq.matches));
+ root.classList.toggle('dark',dark);
+ const a=THEMES[s.theme]||THEMES.red;root.style.setProperty('--accent',dark?mix(a,'#ffffff',.18):a);
+ document.querySelector('meta[name=theme-color]').content=a;root.lang=s.lang;
+}
+function mix(a,b,w){const h=x=>[1,3,5].map(i=>parseInt(x.slice(i,i+2),16));const A=h(a),B=h(b);return'#'+A.map((v,i)=>Math.round(v*(1-w)+B[i]*w).toString(16).padStart(2,'0')).join('')}
+mq.addEventListener?.('change',()=>{applyTheme();render()});
+
+/* ---------- chart ---------- */
+function drawChart(svg,o){
+ const W=svg.clientWidth,H=svg.clientHeight;if(!W||!H)return;
+ const {start,count,birth,labels=true,showSel=true}=o;const L=t(),sh=S.settings.show,P=periods(),off=offset();
+ const padB=labels?(count>20?22:40):6,top=6,ch=H-padB-top,cw=W/count,mid=top+ch/2,amp=ch/2-6;
+ const t0=start-birth+off,X=tt=>(tt-t0)*cw+cw/2,Y=v=>mid-v*amp;
+ const tn=todayN();let s='';
+ for(let i=0;i<count;i++){
+  const n=start+i,x=i*cw,w=ymd(n)[3];
+  if(showSel&&n===sel)s+=`<rect x="${x}" y="${top}" width="${cw}" height="${ch}" fill="var(--accent)" opacity=".14"/>`;
+  if(n===tn)s+=`<rect x="${x+1}" y="${top+1}" width="${cw-2}" height="${ch-2}" fill="none" stroke="var(--ink)" stroke-opacity=".35" stroke-dasharray="3 3"/>`;
+  if(sh.o){const c=calc(birth,n),v=(c.overall-50)/50,y=Y(v);s+=`<rect x="${x+cw*.18}" y="${Math.min(y,mid)}" width="${cw*.64}" height="${Math.abs(y-mid)}" rx="2" fill="${v>=0?'var(--pos)':'var(--neg)'}" opacity=".16"/>`}
+  if(i)s+=`<line x1="${x}" x2="${x}" y1="${top}" y2="${top+ch}" stroke="var(--line)"/>`;
+  if(labels){
+   const[,,d]=ymd(n),we=w>4;
+   if(count<=20){s+=`<text x="${x+cw/2}" y="${top+ch+17}" text-anchor="middle" font-size="${cw<26?12:14}" font-weight="${n===sel?800:500}" fill="${we?'var(--accent)':'var(--ink)'}">${d}</text><text x="${x+cw/2}" y="${top+ch+34}" text-anchor="middle" font-size="${cw<26?10:12}" fill="${we?'var(--accent)':'var(--mute)'}">${L.wd[w]}</text>`}
+   else if(d===1||d%5===0)s+=`<text x="${x+cw/2}" y="${top+ch+16}" text-anchor="middle" font-size="12" fill="var(--mute)">${d}</text>`;
+  }
+ }
+ s+=`<line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--mute)" stroke-opacity=".5"/>`;
+ s+=`<text x="4" y="${top+13}" font-size="11" fill="var(--mute)">+1</text><text x="4" y="${top+ch-4}" font-size="11" fill="var(--mute)">−1</text>`;
+ const a=t0-.5,b=t0+count-.5,step=Math.max(.05,count/W*2);
+ KEYS.forEach((k,j)=>{if(!sh[k])return;const p=P[j];let d='';
+  for(let tt=a;tt<=b+1e-9;tt+=step)d+=(d?'L':'M')+X(tt).toFixed(1)+' '+Y(Math.sin(2*Math.PI*tt/p)).toFixed(1);
+  s+=`<path d="${d}" fill="none" stroke="${col(k)}" stroke-width="2.6" stroke-linejoin="round"/>`;
+  for(let m=Math.ceil(a/(p/2));m*p/2<=b;m++)s+=`<circle cx="${X(m*p/2).toFixed(1)}" cy="${mid}" r="4.5" fill="var(--card)" stroke="${col(k)}" stroke-width="2.2"/>`;
+ });
+ svg.innerHTML=s;
+}
+const charts=new Map();
+const ro=new ResizeObserver(es=>es.forEach(e=>{const o=charts.get(e.target);if(o)drawChart(e.target,o)}));
+function mountChart(svg,o){charts.set(svg,o);ro.observe(svg);drawChart(svg,o)}
+function bindSwipe(fig,o,onTap){
+ let x0=null,y0=0,moved=false,base=0;
+ fig.addEventListener('pointerdown',e=>{x0=e.clientX;y0=e.clientY;moved=false;base=sel});
+ fig.addEventListener('pointermove',e=>{if(x0===null)return;const dx=e.clientX-x0;if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(e.clientY-y0)){moved=true;const cw=fig.clientWidth/o.count,sh=-Math.round(dx/cw);if(base+sh!==sel){sel=base+sh;o.start=sel-7;drawChart(fig.querySelector('svg'),o);updateStats()}}});
+ const end=e=>{if(x0===null)return;if(!moved&&e.type==='pointerup'){const r=fig.getBoundingClientRect(),i=Math.floor((e.clientX-r.left)/(r.width/o.count));onTap(o.start+i)}else if(moved)setSel(sel);x0=null};
+ fig.addEventListener('pointerup',end);fig.addEventListener('pointercancel',end);fig.addEventListener('pointerleave',e=>{if(moved)end(e)});
+}
+
+/* ---------- views ---------- */
+let updateStats=()=>{};
+function statsHtml(c){
+ const L=t(),sh=S.settings.show;
+ return c.r.map((x,j)=>`<button class="row${sh[x.k]?'':' off'}" data-toggle="${x.k}"><span class="dot" style="background:${col(x.k)}"></span><span class="top"><span>${L.r[j]}${x.crit?`<span class="tag">${L.critical}</span>`:''}</span><span>${x.pct.toFixed(1)}% · ${x.v>=0?'+':''}${x.v.toFixed(4)} ${x.rising?'↗':'↘'}</span></span><span class="bar"><i style="width:${x.pct.toFixed(1)}%;background:${col(x.k)}"></i></span></button>`).join('');
+}
+function emptyView(){return`<div class="card empty"><svg viewBox="0 0 120 60" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M4 30c10-26 20-26 30 0s20 26 30 0 20-26 30 0 14 18 22 8"/></svg><h1>${t().app}</h1><p class="muted">${t().noPeople}</p><button class="btn pri" id="addFirst">${t().addPerson}</button></div>`}
+function viewChart(){
+ const p=active(),L=t();if(!p)return emptyView();
+ const c=calc(dn(p.birth),sel);
+ return`<div class="datebar"><button class="nb" id="pw" aria-label="${L.prevWeek}">${ic('dleft')}</button><button class="nb" id="pd" aria-label="${L.prevDay}">${ic('left')}</button><label class="lbl">${fmtMed(sel)}<input type="date" id="dpick" value="${isoOf(sel)}"></label><button class="nb" id="nd" aria-label="${L.nextDay}">${ic('right')}</button><button class="nb" id="nw" aria-label="${L.nextWeek}">${ic('dright')}</button></div>
+ <div class="card" style="padding:10px"><div class="fig" id="fig"><svg role="img" aria-label="Biorhythm chart"></svg></div></div>
+ <div class="card"><div class="rows" id="stats">${statsHtml(c)}</div>
+ <div class="overall" style="margin-top:12px"><span class="muted">${L.overallState} · ${c.n} ${L.daysAlive}</span><span class="big" id="ov">${c.overall.toFixed(1)}%</span></div></div>
+ <p class="muted small" style="margin:0 6px">${L.tapHint}</p>`;
+}
+function afterChart(){
+ const p=active();if(!p)return;const birth=dn(p.birth);
+ const o={start:sel-7,count:15,birth};const fig=$('#fig');mountChart(fig.querySelector('svg'),o);
+ bindSwipe(fig,o,n=>setSel(n));
+ updateStats=()=>{const c=calc(birth,sel);$('#stats').innerHTML=statsHtml(c);$('#ov').textContent=c.overall.toFixed(1)+'%';$('.lbl').firstChild.textContent=fmtMed(sel)};
+ $('#pw').onclick=()=>setSel(sel-7);$('#nw').onclick=()=>setSel(sel+7);$('#pd').onclick=()=>setSel(sel-1);$('#nd').onclick=()=>setSel(sel+1);
+ $('#dpick').onchange=e=>{const n=dn(e.target.value);if(n!=null)setSel(n)};
+ $('#stats').onclick=e=>{const b=e.target.closest('[data-toggle]');if(!b)return;const k=b.dataset.toggle;S.settings.show[k]=!S.settings.show[k];persist();render()};
+}
+function forecastText(p,n){
+ const L=t(),c=calc(dn(p.birth),n);
+ let out=[`${L.forecastFor(p.name,fmtLong(n))}`,''];
+ c.r.forEach((x,j)=>out.push(`${L.r[j]}: ${L.st[x.st]}, ${L.cyc(x.cyc,+x.p.toFixed(2))} (${x.pct.toFixed(1)}%)`));
+ out.push('',`${L.overallState}: ${c.overall.toFixed(1)}% · ${c.n} ${L.daysAlive}`,'',L.sum[sumIdx(c.overall)]);
+ if(c.r.filter(x=>x.crit).length>1)out.push('',L.multi);
+ c.r.forEach((x,j)=>{if(['crit','high','low'].includes(x.st))out.push('',`${L.r[j]} · ${L.st[x.st]}: ${L.tx[x.k][x.st]}`)});
+ return out.join('\n');
+}
+function viewDay(){
+ const p=active(),L=t();if(!p)return emptyView();
+ const c=calc(dn(p.birth),sel),crits=c.r.filter(x=>x.crit).length;
+ const notes=c.r.map((x,j)=>['crit','high','low'].includes(x.st)?`<div class="note"><h3 style="color:${col(x.k)}">${x.st==='crit'?'●':x.st==='high'?'▲':'▼'} ${L.r[j]}: ${L.st[x.st]}</h3><p style="margin:0">${L.tx[x.k][x.st]}</p></div>`:'').join('');
+ return`<div class="datebar"><button class="nb" id="pd" aria-label="${L.prevDay}">${ic('left')}</button><label class="lbl">${fmtMed(sel)}<input type="date" id="dpick" value="${isoOf(sel)}"></label><button class="nb" id="nd" aria-label="${L.nextDay}">${ic('right')}</button></div>
+ <div class="card"><h1 style="margin:0 0 2px">${esc(p.name)}</h1><div class="muted">${fmtLong(sel)}</div>
+ <div class="overall" style="padding:12px 0 4px"><span class="muted">${L.overallState}<br><span class="small">${c.n} ${L.daysAlive}</span></span><span class="big">${c.overall.toFixed(1)}%</span></div>
+ <p style="margin:8px 0 0;font-size:17px">${L.sum[sumIdx(c.overall)]}</p>${crits>1?`<p style="margin:8px 0 0;font-weight:600;color:var(--neg)">${L.multi}</p>`:''}</div>
+ <div class="card">${c.r.map((x,j)=>`<div class="ritm" style="border-color:${col(x.k)}"><h3><span style="color:${col(x.k)}">${L.r[j]}</span><span>${x.pct.toFixed(1)}%</span></h3><div class="small muted">${L.st[x.st]}, ${L.cyc(x.cyc,+x.p.toFixed(2))}, ${x.rising?L.rising:L.falling}</div><p>${L.tx[x.k][x.st]}</p></div>`).join('')}</div>
+ ${notes?`<div class="card">${notes}</div>`:''}
+ <div class="btns" style="margin:0 2px"><button class="btn pri" id="shareDay">${L.share}</button><button class="btn" id="copyDay">${L.copy}</button></div>`;
+}
+function afterDay(){
+ if(!active())return;$('#pd').onclick=()=>setSel(sel-1);$('#nd').onclick=()=>setSel(sel+1);
+ $('#dpick').onchange=e=>{const n=dn(e.target.value);if(n!=null)setSel(n)};
+ $('#shareDay').onclick=shareDay;$('#copyDay').onclick=()=>copyText(forecastText(active(),sel));
+}
+async function copyText(s){try{await navigator.clipboard.writeText(s);toast(t().copied)}catch(e){showText(s)}}
+function showText(s){modal(`<textarea readonly style="min-height:240px">${esc(s)}</textarea><div class="btns" style="margin-top:10px"><button class="btn" data-close>OK</button></div>`)}
+async function shareDay(){
+ const p=active();if(!p)return;const txt=forecastText(p,sel);
+ if(navigator.share){try{await navigator.share({title:t().shareText(p.name,fmtShort(sel)),text:txt});return}catch(e){if(e.name==='AbortError')return}}
+ copyText(txt);
+}
+function viewCalendar(){
+ const p=active(),L=t();if(!p)return emptyView();
+ if(calMonth==null){const[y,m]=ymd(sel);calMonth=y*12+m}
+ const y=Math.floor(calMonth/12),m=calMonth%12,first=Math.round(Date.UTC(y,m,1)/864e5),dim=new Date(Date.UTC(y,m+1,0)).getUTCDate(),lead=ymd(first)[3],birth=dn(p.birth),tn=todayN(),sh=S.settings.show;
+ let cells=L.wd.map(w=>`<div class="wd">${w}</div>`).join('')+'<div></div>'.repeat(lead);
+ const crit=[],all=[];
+ for(let d=0;d<dim;d++){const n=first+d,c=calc(birth,n),v=(c.overall-50)/50;all.push([n,c.overall]);
+  const cr=c.r.filter(x=>x.crit&&sh[x.k]);if(cr.length)crit.push([n,cr]);
+  const bg=`color-mix(in srgb, ${v>=0?'var(--pos)':'var(--neg)'} ${Math.round(Math.abs(v)*38)}%, var(--soft))`;
+  cells+=`<button data-day="${n}" class="${n===tn?'today ':''}${n===sel?'sel':''}" style="background:${bg}" aria-label="${fmtShort(n)} ${c.overall.toFixed(0)}%"><span>${d+1}</span><span class="pc">${c.overall.toFixed(0)}</span><span class="dots">${cr.map(x=>`<i style="background:${col(x.k)}"></i>`).join('')}</span></button>`}
+ const sorted=[...all].sort((a,b)=>b[1]-a[1]);
+ const li=arr=>arr.map(([n,o])=>`<div class="li"><span>${fmtLong(n)}</span><b>${o.toFixed(1)}%</b></div>`).join('');
+ return`<div class="datebar"><button class="nb" id="pm" aria-label="-">${ic('left')}</button><div class="lbl">${L.months[m][0].toUpperCase()+L.months[m].slice(1)} ${y}</div><button class="nb" id="nm" aria-label="+">${ic('right')}</button></div>
+ <div class="card"><div class="cal" id="cal">${cells}</div><div class="chips" style="margin-top:10px">${KEYS.map((k,j)=>sh[k]?`<span class="chip" style="background:${col(k)}">● ${L.r[j]}</span>`:'').join('')}</div></div>
+ <div class="card"><h2 style="margin-top:0">${L.critIn(L.months[m]+' '+y)}</h2><div class="list">${crit.length?crit.map(([n,cr])=>`<div class="li"><span>${fmtLong(n)}</span><span class="chips">${cr.map(x=>`<span class="chip" style="background:${col(x.k)}">${L.r[KEYS.indexOf(x.k)]}</span>`).join('')}</span></div>`).join(''):`<p class="muted">${L.noCrit}</p>`}</div></div>
+ <div class="card"><h2 style="margin-top:0">${L.monthCurve}</h2><div class="fig mini" id="mfig"><svg role="img" aria-label="Month chart"></svg></div></div>
+ <div class="card"><h2 style="margin-top:0">${L.bestDays}</h2>${li(sorted.slice(0,3))}<h2>${L.lowDays}</h2>${li(sorted.slice(-3).reverse())}</div>`;
+}
+function afterCalendar(){
+ const p=active();if(!p)return;
+ $('#pm').onclick=()=>{calMonth--;render()};$('#nm').onclick=()=>{calMonth++;render()};
+ $('#cal').onclick=e=>{const b=e.target.closest('[data-day]');if(b){sel=+b.dataset.day;S.settings.lastDate=isoOf(sel);persist();location.hash='day'}};
+ const y=Math.floor(calMonth/12),m=calMonth%12,first=Math.round(Date.UTC(y,m,1)/864e5),dim=new Date(Date.UTC(y,m+1,0)).getUTCDate();
+ const svg=$('#mfig svg');const o={start:first,count:dim,birth:dn(p.birth)};mountChart(svg,o);
+ $('#mfig').onclick=e=>{const r=svg.getBoundingClientRect(),i=Math.floor((e.clientX-r.left)/(r.width/dim));setSel(first+i)};
+}
+function personOpts(id){return S.people.map(p=>`<option value="${esc(p.id)}"${p.id===id?' selected':''}>${esc(p.name)} (${fmtShort(dn(p.birth))})</option>`).join('')}
+function viewPair(){
+ const L=t();if(S.people.length<2)return`<h1>${L.pairTitle}</h1><div class="card empty"><p class="muted">${L.needTwo}</p><button class="btn pri" id="addP">${L.addPerson}</button></div>`;
+ const s=S.settings;let A=S.people.find(p=>p.id===s.pairA)||S.people[0],B=S.people.find(p=>p.id===s.pairB&&p.id!==A.id)||S.people.find(p=>p.id!==A.id);
+ const c=compat(dn(A.birth),dn(B.birth)),ci=c.overall>=75?3:c.overall>=50?2:c.overall>=25?1:0;
+ const ca=calc(dn(A.birth),sel),cb=calc(dn(B.birth),sel);
+ return`<h1>${L.pairTitle}</h1><div class="card"><div class="field"><label for="pa">${L.first}</label><select id="pa">${personOpts(A.id)}</select></div><div class="field" style="margin:0"><label for="pb">${L.second}</label><select id="pb">${personOpts(B.id)}</select></div></div>
+ <div class="card"><div class="rows">${c.r.map((v,j)=>`<div class="row" style="cursor:default"><span class="dot" style="background:${col(KEYS[j])}"></span><span class="top"><span>${L.r[j]}</span><span>${v.toFixed(1)}%</span></span><span class="bar"><i style="width:${v}%;background:${col(KEYS[j])}"></i></span></div>`).join('')}</div>
+ <div class="overall" style="margin-top:12px"><span class="muted">${L.overall}</span><span class="big">${c.overall.toFixed(1)}%</span></div><p style="margin:8px 4px 0">${L.compat[ci]}</p></div>
+ <div class="card"><h2 style="margin-top:0">${L.pairNow}: ${fmtMed(sel)}</h2><dl class="kv"><dt></dt><dd style="display:flex;gap:16px;justify-content:flex-end"><span>${esc(A.name)}</span><span>${esc(B.name)}</span></dd>${ca.r.map((x,j)=>`<dt style="color:${col(x.k)}">${L.r[j]}</dt><dd style="display:flex;gap:16px;justify-content:flex-end"><span>${x.pct.toFixed(0)}%${x.crit?' ●':''}</span><span>${cb.r[j].pct.toFixed(0)}%${cb.r[j].crit?' ●':''}</span></dd>`).join('')}<dt>${L.overall}</dt><dd style="display:flex;gap:16px;justify-content:flex-end"><span>${ca.overall.toFixed(0)}%</span><span>${cb.overall.toFixed(0)}%</span></dd></dl></div>`;
+}
+function afterPair(){
+ if(S.people.length<2){$('#addP').onclick=()=>editPerson();return}
+ $('#pa').onchange=e=>{S.settings.pairA=e.target.value;if(S.settings.pairB===e.target.value)S.settings.pairB=null;persist();render()};
+ $('#pb').onchange=e=>{S.settings.pairB=e.target.value;if(S.settings.pairA===e.target.value)S.settings.pairA=null;persist();render()};
+}
+function viewMore(){
+ const L=t();
+ const it=(h,i,txt)=>`<a href="${h}">${ic(i)}<span>${txt}</span></a>`;
+ return`<h1>${L.more}</h1><div class="card menu">${it('#people','people',L.people)}${it('#settings','gear',L.settings)}</div>
+ <div class="card menu"><a href="#" id="mBackup">${ic('save')}<span>${L.backup}</span></a><a href="#" id="mRestore">${ic('load')}<span>${L.restore}</span></a><a href="#" id="mIcs">${ic('cal2')}<span>${L.icsExport}</span></a></div>
+ <div class="card menu">${it('#help','help',L.help)}${it('#about','info',L.about)}</div>`;
+}
+function afterMore(){
+ $('#mBackup').onclick=e=>{e.preventDefault();doBackup()};$('#mRestore').onclick=e=>{e.preventDefault();doRestore()};$('#mIcs').onclick=e=>{e.preventDefault();doIcs()};
+}
+function viewPeople(){
+ const L=t(),tn=todayN();
+ return`<h1>${L.people}</h1><div class="card">${S.people.length?S.people.map(p=>{const b=dn(p.birth),d=tn-b;return`<div class="person${p.id===(active()||{}).id?' sel':''}"><button class="main" data-pick="${esc(p.id)}"><b>${esc(p.name)}</b><span class="small muted">${fmtShort(b)} · ${d} ${L.days} · ${L.age} ${(d/365.25).toFixed(2)}</span></button><button class="btn" data-edit="${esc(p.id)}">${L.edit}</button></div>`}).join(''):`<p class="muted">${L.noPeople}</p>`}</div>
+ <button class="btn pri" id="addP">${L.addPerson}</button>`;
+}
+function afterPeople(){
+ $('#addP').onclick=()=>editPerson();
+ $('#view').onclick=e=>{const a=e.target.closest('[data-pick]'),b=e.target.closest('[data-edit]');
+  if(a){S.activeId=a.dataset.pick;persist();location.hash='chart'}
+  if(b)editPerson(S.people.find(p=>p.id===b.dataset.edit))};
+}
+function viewSettings(){
+ const L=t(),s=S.settings;
+ const radio=(name,val,title,sub)=>`<label class="opt"><input type="radio" name="${name}" value="${val}"${s[name]===val?' checked':''}><span>${title}${sub?`<small>${sub}</small>`:''}</span></label>`;
+ const chk=(id,on,title,sub,c)=>`<label class="opt"><input type="checkbox" id="${id}"${on?' checked':''}${c?` style="accent-color:${c}"`:''}><span>${title}${sub?`<small>${sub}</small>`:''}</span></label>`;
+ return`<h1>${L.settings}</h1>
+ <div class="card"><h2 style="margin-top:0">${L.lang}</h2><div class="seg" id="segLang"><button data-v="en" class="${s.lang==='en'?'on':''}">English</button><button data-v="lv" class="${s.lang==='lv'?'on':''}">Latviešu</button></div></div>
+ <div class="card"><h2 style="margin-top:0">${L.algo}</h2>${L.algos.map(a=>radio('algo',a[0],a[1],a[2])).join('')}</div>
+ <div class="card"><h2 style="margin-top:0">${L.theme}</h2><div class="swatches" id="sw">${Object.entries(THEMES).map(([k,v])=>`<button class="sw${s.theme===k?' on':''}" data-v="${k}" style="background:${v}" aria-label="${k}"></button>`).join('')}</div>
+ <h2>${L.mode}</h2><div class="seg" id="segMode">${['light','dark','system'].map(m=>`<button data-v="${m}" class="${s.mode===m?'on':''}">${L.modes[m]}</button>`).join('')}</div></div>
+ <div class="card"><h2 style="margin-top:0">${L.showR}</h2>${KEYS.map((k,j)=>chk('sh_'+k,s.show[k],L.r[j],'',col(k))).join('')}${chk('sh_o',s.show.o,L.showO)}</div>
+ <div class="card">${chk('stToday',s.startToday,L.startToday,L.startTodayS)}${chk('notif',s.notify,L.notif,L.notifS)}</div>`;
+}
+function afterSettings(){
+ const s=S.settings,up=()=>{persist();applyTheme();render()};
+ $('#segLang').onclick=e=>{const b=e.target.closest('button');if(b){s.lang=b.dataset.v;up()}};
+ $('#segMode').onclick=e=>{const b=e.target.closest('button');if(b){s.mode=b.dataset.v;up()}};
+ $('#sw').onclick=e=>{const b=e.target.closest('button');if(b){s.theme=b.dataset.v;up()}};
+ document.querySelectorAll('input[name=algo]').forEach(r=>r.onchange=()=>{s.algo=r.value;up()});
+ KEYS.concat('o').forEach(k=>$('#sh_'+k).onchange=e=>{s.show[k]=e.target.checked;persist()});
+ $('#stToday').onchange=e=>{s.startToday=e.target.checked;persist()};
+ $('#notif').onchange=async e=>{if(e.target.checked){const ok=await enableNotify();e.target.checked=ok;s.notify=ok}else s.notify=false;persist()};
+}
+function viewHelp(){return`<h1>${t().help}</h1><div class="card help">${t().helpHtml}</div>`}
+function viewAbout(){const L=t();return`<div class="card empty"><svg viewBox="0 0 120 60" fill="none" stroke-width="3" stroke-linecap="round"><path d="M4 30c10-26 20-26 30 0s20 26 30 0 20-26 30 0 14 18 22 8" stroke="var(--p)"/><path d="M4 30c13-22 26-22 39 0s26 22 39 0 26-22 34-8" stroke="var(--e)"/><path d="M4 30c16-20 32-20 48 0s32 20 48 0" stroke="var(--i)"/></svg><h1 style="margin:8px 0 4px">${L.app}</h1><p class="muted" style="margin:0">${L.tagline} · ${L.version} ${VERSION}</p><p style="text-align:left;max-width:60ch;margin:16px auto 0">${L.aboutText}</p><p class="small muted">${L.installTip}</p></div>`}
+
+/* ---------- person editor ---------- */
+function modal(html,onMount){
+ const m=document.createElement('div');m.className='modal';m.innerHTML=`<div class="card" role="dialog" aria-modal="true">${html}</div>`;
+ m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.remove()});
+ document.body.appendChild(m);onMount&&onMount(m);return m;
+}
+function editPerson(p){
+ const L=t();
+ modal(`<h2 style="margin-top:0">${p?L.editPerson:L.addPerson}</h2><form id="pf"><div class="field"><label for="pn">${L.name}</label><input id="pn" maxlength="60" autocomplete="off" value="${p?esc(p.name):''}" required></div><div class="field"><label for="pbd">${L.birth}</label><input id="pbd" type="date" max="${isoOf(todayN())}" value="${p?p.birth:''}" required></div><p class="muted small hide" id="perr">${L.needName}</p><div class="btns"><button class="btn pri" type="submit">${L.save}</button><button class="btn" type="button" data-close>${L.cancel}</button>${p?`<button class="btn danger" type="button" id="pdel">${L.del}</button>`:''}</div></form>`,m=>{
+  const f=m.querySelector('#pf');setTimeout(()=>m.querySelector('#pn').focus(),50);
+  f.onsubmit=e=>{e.preventDefault();const name=m.querySelector('#pn').value.trim(),birth=m.querySelector('#pbd').value;
+   if(!name||dn(birth)==null){m.querySelector('#perr').classList.remove('hide');return}
+   if(p){p.name=name;p.birth=birth}else{const id='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.people.push({id,name,birth});S.activeId=id}
+   persist();m.remove();render()};
+  const d=m.querySelector('#pdel');if(d)d.onclick=()=>{m.remove();modal(`<p style="font-size:17px">${esc(L.delQ(p.name))}</p><div class="btns"><button class="btn pri" id="yes" style="background:var(--neg);border-color:var(--neg)">${L.del}</button><button class="btn" data-close>${L.cancel}</button></div>`,m2=>{m2.querySelector('#yes').onclick=()=>{S.people=S.people.filter(x=>x.id!==p.id);if(S.activeId===p.id)S.activeId=S.people[0]?.id||null;persist();m2.remove();render()}})};
+ });
+}
+function pickPerson(){
+ const L=t();if(!S.people.length)return editPerson();
+ modal(`<h2 style="margin-top:0">${L.people}</h2>${S.people.map(p=>`<div class="person${p.id===active().id?' sel':''}"><button class="main" data-pick="${esc(p.id)}"><b>${esc(p.name)}</b><span class="small muted">${fmtShort(dn(p.birth))}</span></button></div>`).join('')}<div class="btns" style="margin-top:10px"><button class="btn pri" id="np">${L.addPerson}</button><a class="btn" href="#people" data-close>${L.edit}</a></div>`,m=>{
+  m.onclick=e=>{const a=e.target.closest('[data-pick]');if(a){S.activeId=a.dataset.pick;persist();m.remove();render()}else if(e.target===m||e.target.closest('[data-close]'))m.remove()};
+  m.querySelector('#np').onclick=()=>{m.remove();editPerson()};
+ });
+}
+
+/* ---------- backup / restore / ics ---------- */
+function fileOut(name,text,type){
+ const L=t(),blob=new Blob([text],{type});
+ modal(`<h2 style="margin-top:0">${name.endsWith('.ics')?L.icsTitle:L.bkTitle}</h2><p>${name.endsWith('.ics')?esc(L.icsText(active().name)):L.bkText}</p><div class="btns"><button class="btn pri" id="dl">${L.download}</button>${navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type})]})?`<button class="btn" id="sh">${L.share}</button>`:''}<button class="btn" id="cp">${L.copy}</button><button class="btn" data-close>OK</button></div><textarea readonly style="margin-top:12px">${esc(text)}</textarea>`,m=>{
+  m.querySelector('#dl').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)};
+  const sh=m.querySelector('#sh');if(sh)sh.onclick=async()=>{try{await navigator.share({files:[new File([blob],name,{type})],title:name})}catch(e){}};
+  m.querySelector('#cp').onclick=()=>copyText(text);
+ });
+}
+function doBackup(){fileOut(`ritmi-backup-${isoOf(todayN())}.json`,JSON.stringify({app:'ritmi',format:1,exported:new Date().toISOString(),people:S.people.map(({id,name,birth})=>({id,name,birth})),settings:S.settings},null,2),'application/json')}
+function parseBackup(txt){
+ try{const o=JSON.parse(txt);const arr=Array.isArray(o)?o:o.people||o.users;if(!Array.isArray(arr))return null;
+  const out=arr.map(x=>({id:String(x.id||('p'+Math.random().toString(36).slice(2,9))),name:String(x.name||'').slice(0,60),birth:String(x.birth||x.birthDate||'')})).filter(x=>x.name&&dn(x.birth)!=null);
+  return out.length?out:null}catch(e){return null}
+}
+function doRestore(){
+ const L=t();
+ modal(`<h2 style="margin-top:0">${L.rsTitle}</h2><p>${L.rsText}</p><button class="btn" id="cf">${L.chooseFile}</button><textarea id="rt" style="margin-top:10px" placeholder="{ ... }"></textarea><p class="small hide" id="re" style="color:var(--neg)">${L.rsBad}</p><div class="btns" style="margin-top:10px"><button class="btn pri" id="ra">${L.rsAdd}</button><button class="btn" id="rr">${L.rsReplace}</button><button class="btn" data-close>${L.cancel}</button></div>`,m=>{
+  const fi=$('#fileIn');m.querySelector('#cf').onclick=()=>{fi.value='';fi.onchange=async()=>{const f=fi.files[0];if(f)m.querySelector('#rt').value=await f.text()};fi.click()};
+  const go=replace=>{const list=parseBackup(m.querySelector('#rt').value);if(!list){m.querySelector('#re').classList.remove('hide');return}
+   if(replace)S.people=list;else list.forEach(x=>{if(!S.people.some(p=>p.name===x.name&&p.birth===x.birth)){if(S.people.some(p=>p.id===x.id))x.id+='-'+Date.now().toString(36);S.people.push(x)}});
+   if(!active()||!S.people.some(p=>p.id===S.activeId))S.activeId=S.people[0]?.id||null;persist();m.remove();toast(L.rsDone(list.length));render()};
+  m.querySelector('#ra').onclick=()=>go(false);m.querySelector('#rr').onclick=()=>go(true);
+ });
+}
+function doIcs(){
+ const p=active(),L=t();if(!p)return editPerson();
+ const b=dn(p.birth),tn=todayN(),stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z',d8=n=>isoOf(n).replace(/-/g,'');
+ const ev=[];for(let n=tn;n<tn+366;n++){const c=calc(b,n),cr=c.r.filter(x=>x.crit);if(!cr.length)continue;
+  const names=cr.map(x=>L.r[KEYS.indexOf(x.k)]).join(', ');
+  ev.push(['BEGIN:VEVENT',`UID:ritmi-${p.id}-${d8(n)}@ritmi`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${d8(n)}`,`DTEND;VALUE=DATE:${d8(n+1)}`,`SUMMARY:${(L.criticalDay+': '+names+' ('+p.name+')').replace(/[,;\\]/g,m=>'\\'+m)}`,`DESCRIPTION:${cr.map(x=>L.tx[x.k].crit).join(' ').replace(/[,;\\]/g,m=>'\\'+m)}`,'TRANSP:TRANSPARENT','BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+L.criticalDay,'TRIGGER:-PT3H','END:VALARM','END:VEVENT'].join('\r\n'))}
+ fileOut(`ritmi-${p.name.replace(/[^\p{L}\p{N}]+/gu,'-')}-critical.ics`,['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Ritmi//Biorhythms//EN','CALSCALE:GREGORIAN',...ev,'END:VCALENDAR'].join('\r\n'),'text/calendar');
+}
+
+/* ---------- notifications (best effort) ---------- */
+async function mirrorForSW(){try{if(!('caches'in window))return;const c=await caches.open('ritmi-state');await c.put('./__state.json',new Response(JSON.stringify({people:S.people,activeId:S.activeId,settings:S.settings,texts:{r:t().r,crit:t().criticalDay,overall:t().overallState,sum:t().sum}}),{headers:{'content-type':'application/json'}}))}catch(e){}}
+async function enableNotify(){
+ const L=t();if(!('Notification'in window)){toast(L.notifNo);return false}
+ const perm=await Notification.requestPermission();if(perm!=='granted'){toast(L.notifDenied);return false}
+ try{const reg=await navigator.serviceWorker?.ready;if(reg&&'periodicSync'in reg){try{await reg.periodicSync.register('ritmi-daily',{minInterval:12*3600*1000});toast(L.notifOn);return true}catch(e){}}}catch(e){}
+ toast(L.notifPartial);return true;
+}
+async function notifyOnOpen(){
+ try{if(!S.settings.notify||Notification.permission!=='granted')return;const key='ritmi.lastNotified',tn=isoOf(todayN());if(localStorage.getItem(key)===tn)return;
+  const p=active();if(!p)return;const c=calc(dn(p.birth),todayN()),L=t(),cr=c.r.filter(x=>x.crit);
+  const body=c.r.map((x,j)=>`${L.rs[j]} ${x.pct.toFixed(0)}%`).join(' · ')+(cr.length?`\n${L.criticalDay}: ${cr.map(x=>L.r[KEYS.indexOf(x.k)]).join(', ')}`:'');
+  const reg=await navigator.serviceWorker?.getRegistration();const title=`${p.name}: ${c.overall.toFixed(0)}%`;
+  if(reg)reg.showNotification(title,{body,icon:'icon-192.png',tag:'ritmi-daily'});else new Notification(title,{body});
+  localStorage.setItem(key,tn)}catch(e){}
+}
+
+/* ---------- router ---------- */
+const ROUTES={chart:[viewChart,afterChart],day:[viewDay,afterDay],calendar:[viewCalendar,afterCalendar],pair:[viewPair,afterPair],more:[viewMore,afterMore],people:[viewPeople,afterPeople],settings:[viewSettings,afterSettings],help:[viewHelp,()=>{}],about:[viewAbout,()=>{}]};
+const TABS=['chart','day','calendar','pair','more'];
+function route(){const h=location.hash.slice(1);return ROUTES[h]?h:'chart'}
+function render(){
+ const r=route(),L=t(),p=active();
+ charts.clear();ro.disconnect();updateStats=()=>{};
+ $('#view').onclick=null;
+ $('#whoName').textContent=p?p.name:L.addPerson;$('#whoAv').textContent=p?p.name.trim()[0].toUpperCase():'+';
+ $('#whoSub').textContent=p?`${fmtShort(dn(p.birth))} · ${todayN()-dn(p.birth)} ${L.days}`:L.tagline;
+ const parent={people:'more',settings:'more',help:'more',about:'more'}[r]||r;
+ $('#tabs').innerHTML=TABS.map(k=>`<a href="#${k}" class="${k===parent?'on':''}">${ic(k)}<span>${L.tabs[k]}</span></a>`).join('');
+ $('#view').innerHTML=ROUTES[r][0]();ROUTES[r][1]();
+ const af=$('#addFirst');if(af)af.onclick=()=>editPerson();
+}
+window.addEventListener('hashchange',()=>{if(route()==='calendar'){const[y,m]=ymd(sel);calMonth=y*12+m}render();scrollTo(0,0)});
+$('#who').onclick=pickPerson;
+$('#btnToday').onclick=()=>{calMonth=null;setSel(todayN())};
+$('#btnShare').onclick=shareDay;
+new MutationObserver(()=>{if(S.settings.mode==='system'){applyTheme();render()}}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+applyTheme();render();mirrorForSW();
+if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').then(()=>notifyOnOpen()).catch(()=>notifyOnOpen())}
+}
+</script>
+</body>
+</html>
