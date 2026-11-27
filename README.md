@@ -10,3 +10,8 @@ A personal biorhythms calculator as an installable web app (PWA). Works offline;
 - Best-effort daily notification (Android Chrome, installed app)
 
 Plain HTML/CSS/JS, no build step. Hosted with GitHub Pages.
+
+## Android app
+
+`android/` is a small WebView shell around the same `index.html` (offline, backups saved to the phone, daily 8:00 notification).
+GitHub Actions builds `Ritmi.apk` on every push and publishes it under Releases.

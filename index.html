@@ -171,7 +171,7 @@ en:{
  theme:'Colour',mode:'Appearance',modes:{light:'Light',dark:'Dark',system:'System'},
  startToday:'Open on today\'s date',startTodayS:'If off, the app reopens on the last date you viewed.',
  showR:'Rhythms shown',showO:'Overall bars on the chart',
- notif:'Daily notification',notifS:'Best effort. Works on Android in Chrome when the app is installed to the home screen; the phone decides the exact time. For guaranteed reminders, add critical days to your calendar.',
+ notifA:'Every morning at about 8:00 you get a short summary for the selected person, with a warning on critical days.',notif:'Daily notification',notifS:'Best effort. Works on Android in Chrome when the app is installed to the home screen; the phone decides the exact time. For guaranteed reminders, add critical days to your calendar.',
  notifOn:'Notifications turned on.',notifNo:'Notifications are not available here.',notifDenied:'Notifications were blocked. You can allow them in the browser settings.',
  notifPartial:'Notifications allowed, but this browser cannot run daily background checks. You will get a notice when you open the app.',
  bkTitle:'Backup',bkText:'Save this file somewhere safe (for example Google Drive). You can restore it on any phone.',download:'Download file',copy:'Copy text',share:'Share',copied:'Copied.',
@@ -230,7 +230,7 @@ lv:{
  theme:'Krāsa',mode:'Izskats',modes:{light:'Gaišs',dark:'Tumšs',system:'Kā sistēmā'},
  startToday:'Atvērt ar šodienas datumu',startTodayS:'Ja izslēgts, lietotne atveras ar pēdējo skatīto datumu.',
  showR:'Rādītie ritmi',showO:'Kopējā stāvokļa stabiņi grafikā',
- notif:'Ikdienas paziņojums',notifS:'Pēc iespējas. Darbojas Android tālrunī pārlūkā Chrome, ja lietotne ir instalēta sākuma ekrānā; precīzo laiku izvēlas tālrunis. Drošiem atgādinājumiem pievienojiet kritiskās dienas kalendāram.',
+ notifA:'Katru rītu ap 8:00 saņemsiet īsu kopsavilkumu par izvēlēto cilvēku ar brīdinājumu kritiskajās dienās.',notif:'Ikdienas paziņojums',notifS:'Pēc iespējas. Darbojas Android tālrunī pārlūkā Chrome, ja lietotne ir instalēta sākuma ekrānā; precīzo laiku izvēlas tālrunis. Drošiem atgādinājumiem pievienojiet kritiskās dienas kalendāram.',
  notifOn:'Paziņojumi ieslēgti.',notifNo:'Paziņojumi šeit nav pieejami.',notifDenied:'Paziņojumi ir bloķēti. Tos var atļaut pārlūka iestatījumos.',
  notifPartial:'Paziņojumi atļauti, bet šis pārlūks nevar veikt ikdienas pārbaudes fonā. Paziņojumu saņemsiet, atverot lietotni.',
  bkTitle:'Rezerves kopija',bkText:'Saglabājiet šo failu drošā vietā (piemēram, Google Drive). To var atjaunot jebkurā tālrunī.',download:'Lejupielādēt failu',copy:'Kopēt tekstu',share:'Kopīgot',copied:'Nokopēts.',
@@ -260,6 +260,7 @@ lv:{
 <h2>Atgādinājumi</h2><p>Ikdienas paziņojums darbojas pēc iespējas, jo tīmekļa lietotnes nevar ieplānot precīzus modinātājus. Drošiem atgādinājumiem izmantojiet <b>Pievienot kritiskās dienas kalendāram</b>, kas izveido kalendāra notikumus ar tālruņa atgādinājumiem.</p>`
 }};
 const VERSION='1.0.0';
+const AND=window.Android||null;
 const THEMES={red:'#c62828',orange:'#e65100',green:'#2e7d32',purple:'#7b1fa2',indigo:'#3949ab',teal:'#00796b'};
 const KEYS=['p','e','i','u'];
 const PER={std:[23,28,33,38],precise:[23.688437,28.426125,33.163812,37.9015]};
@@ -269,7 +270,8 @@ const LS='ritmi.v1';
 const defSettings={lang:(navigator.language||'').toLowerCase().startsWith('lv')?'lv':'en',algo:'alt',theme:'red',mode:'system',startToday:true,lastDate:null,show:{p:true,e:true,i:true,u:true,o:true},notify:false,pairA:null,pairB:null};
 let S={people:[],activeId:null,settings:{...defSettings}};
 try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);S.people=Array.isArray(o.people)?o.people:[];S.activeId=o.activeId||null;S.settings={...defSettings,...(o.settings||{}),show:{...defSettings.show,...((o.settings||{}).show||{})}}}}catch(e){}
-function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}mirrorForSW()}
+function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}mirrorForSW();syncAndroid()}
+function syncAndroid(){try{if(AND)AND.syncState(JSON.stringify({people:S.people,activeId:S.activeId,settings:S.settings,texts:{r:t().r,crit:t().criticalDay}}))}catch(e){}}
 const t=()=>T[S.settings.lang]||T.en;
 
 /* ---------- date + math ---------- */
@@ -427,10 +429,11 @@ function afterDay(){
  $('#dpick').onchange=e=>{const n=dn(e.target.value);if(n!=null)setSel(n)};
  $('#shareDay').onclick=shareDay;$('#copyDay').onclick=()=>copyText(forecastText(active(),sel));
 }
-async function copyText(s){try{await navigator.clipboard.writeText(s);toast(t().copied)}catch(e){showText(s)}}
+async function copyText(s){if(AND){AND.copy(s);toast(t().copied);return}try{await navigator.clipboard.writeText(s);toast(t().copied)}catch(e){showText(s)}}
 function showText(s){modal(`<textarea readonly style="min-height:240px">${esc(s)}</textarea><div class="btns" style="margin-top:10px"><button class="btn" data-close>OK</button></div>`)}
 async function shareDay(){
  const p=active();if(!p)return;const txt=forecastText(p,sel);
+ if(AND){AND.shareText(txt);return}
  if(navigator.share){try{await navigator.share({title:t().shareText(p.name,fmtShort(sel)),text:txt});return}catch(e){if(e.name==='AbortError')return}}
  copyText(txt);
 }
@@ -507,7 +510,7 @@ function viewSettings(){
  <div class="card"><h2 style="margin-top:0">${L.theme}</h2><div class="swatches" id="sw">${Object.entries(THEMES).map(([k,v])=>`<button class="sw${s.theme===k?' on':''}" data-v="${k}" style="background:${v}" aria-label="${k}"></button>`).join('')}</div>
  <h2>${L.mode}</h2><div class="seg" id="segMode">${['light','dark','system'].map(m=>`<button data-v="${m}" class="${s.mode===m?'on':''}">${L.modes[m]}</button>`).join('')}</div></div>
  <div class="card"><h2 style="margin-top:0">${L.showR}</h2>${KEYS.map((k,j)=>chk('sh_'+k,s.show[k],L.r[j],'',col(k))).join('')}${chk('sh_o',s.show.o,L.showO)}</div>
- <div class="card">${chk('stToday',s.startToday,L.startToday,L.startTodayS)}${chk('notif',s.notify,L.notif,L.notifS)}</div>`;
+ <div class="card">${chk('stToday',s.startToday,L.startToday,L.startTodayS)}${chk('notif',s.notify,L.notif,AND?L.notifA:L.notifS)}</div>`;
 }
 function afterSettings(){
  const s=S.settings,up=()=>{persist();applyTheme();render()};
@@ -517,7 +520,7 @@ function afterSettings(){
  document.querySelectorAll('input[name=algo]').forEach(r=>r.onchange=()=>{s.algo=r.value;up()});
  KEYS.concat('o').forEach(k=>$('#sh_'+k).onchange=e=>{s.show[k]=e.target.checked;persist()});
  $('#stToday').onchange=e=>{s.startToday=e.target.checked;persist()};
- $('#notif').onchange=async e=>{if(e.target.checked){const ok=await enableNotify();e.target.checked=ok;s.notify=ok}else s.notify=false;persist()};
+ $('#notif').onchange=async e=>{if(e.target.checked){const ok=await enableNotify();e.target.checked=ok;s.notify=ok}else{s.notify=false;if(AND)AND.disableNotify()}persist()};
 }
 function viewHelp(){return`<h1>${t().help}</h1><div class="card help">${t().helpHtml}</div>`}
 function viewAbout(){const L=t();return`<div class="card empty"><svg viewBox="0 0 120 60" fill="none" stroke-width="3" stroke-linecap="round"><path d="M4 30c10-26 20-26 30 0s20 26 30 0 20-26 30 0 14 18 22 8" stroke="var(--p)"/><path d="M4 30c13-22 26-22 39 0s26 22 39 0 26-22 34-8" stroke="var(--e)"/><path d="M4 30c16-20 32-20 48 0s32 20 48 0" stroke="var(--i)"/></svg><h1 style="margin:8px 0 4px">${L.app}</h1><p class="muted" style="margin:0">${L.tagline} · ${L.version} ${VERSION}</p><p style="text-align:left;max-width:60ch;margin:16px auto 0">${L.aboutText}</p><p class="small muted">${L.installTip}</p></div>`}
@@ -550,9 +553,9 @@ function pickPerson(){
 /* ---------- backup / restore / ics ---------- */
 function fileOut(name,text,type){
  const L=t(),blob=new Blob([text],{type});
- modal(`<h2 style="margin-top:0">${name.endsWith('.ics')?L.icsTitle:L.bkTitle}</h2><p>${name.endsWith('.ics')?esc(L.icsText(active().name)):L.bkText}</p><div class="btns"><button class="btn pri" id="dl">${L.download}</button>${navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type})]})?`<button class="btn" id="sh">${L.share}</button>`:''}<button class="btn" id="cp">${L.copy}</button><button class="btn" data-close>OK</button></div><textarea readonly style="margin-top:12px">${esc(text)}</textarea>`,m=>{
-  m.querySelector('#dl').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)};
-  const sh=m.querySelector('#sh');if(sh)sh.onclick=async()=>{try{await navigator.share({files:[new File([blob],name,{type})],title:name})}catch(e){}};
+ modal(`<h2 style="margin-top:0">${name.endsWith('.ics')?L.icsTitle:L.bkTitle}</h2><p>${name.endsWith('.ics')?esc(L.icsText(active().name)):L.bkText}</p><div class="btns"><button class="btn pri" id="dl">${L.download}</button>${AND||navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type})]})?`<button class="btn" id="sh">${L.share}</button>`:''}<button class="btn" id="cp">${L.copy}</button><button class="btn" data-close>OK</button></div><textarea readonly style="margin-top:12px">${esc(text)}</textarea>`,m=>{
+  m.querySelector('#dl').onclick=()=>{if(AND){AND.saveFile(name,text,type);return}const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)};
+  const sh=m.querySelector('#sh');if(sh)sh.onclick=async()=>{if(AND){AND.shareFile(name,text,type);return}try{await navigator.share({files:[new File([blob],name,{type})],title:name})}catch(e){}};
   m.querySelector('#cp').onclick=()=>copyText(text);
  });
 }
@@ -584,7 +587,7 @@ function doIcs(){
 /* ---------- notifications (best effort) ---------- */
 async function mirrorForSW(){try{if(!('caches'in window))return;const c=await caches.open('ritmi-state');await c.put('./__state.json',new Response(JSON.stringify({people:S.people,activeId:S.activeId,settings:S.settings,texts:{r:t().r,crit:t().criticalDay,overall:t().overallState,sum:t().sum}}),{headers:{'content-type':'application/json'}}))}catch(e){}}
 async function enableNotify(){
- const L=t();if(!('Notification'in window)){toast(L.notifNo);return false}
+ const L=t();if(AND){S.settings.notify=true;syncAndroid();AND.enableNotify();toast(L.notifOn);return true}if(!('Notification'in window)){toast(L.notifNo);return false}
  const perm=await Notification.requestPermission();if(perm!=='granted'){toast(L.notifDenied);return false}
  try{const reg=await navigator.serviceWorker?.ready;if(reg&&'periodicSync'in reg){try{await reg.periodicSync.register('ritmi-daily',{minInterval:12*3600*1000});toast(L.notifOn);return true}catch(e){}}}catch(e){}
  toast(L.notifPartial);return true;
@@ -618,7 +621,7 @@ $('#who').onclick=pickPerson;
 $('#btnToday').onclick=()=>{calMonth=null;setSel(todayN())};
 $('#btnShare').onclick=shareDay;
 new MutationObserver(()=>{if(S.settings.mode==='system'){applyTheme();render()}}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-applyTheme();render();mirrorForSW();
+applyTheme();render();mirrorForSW();syncAndroid();
 if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').then(()=>notifyOnOpen()).catch(()=>notifyOnOpen())}
 }
 </script>

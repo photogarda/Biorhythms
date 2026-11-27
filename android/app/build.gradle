@@ -1,0 +1,32 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'lv.ritmi.app'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'lv.ritmi.app'
+        minSdk 26
+        targetSdk 34
+        versionCode((System.getenv('BUILD_NUMBER') ?: '1') as int)
+        versionName '1.0.' + (System.getenv('BUILD_NUMBER') ?: '0')
+    }
+    signingConfigs {
+        release {
+            // Family sideload key, kept in the repo so every build can update the installed app.
+            storeFile file('../ritmi.keystore')
+            storePassword 'ritmi-family'
+            keyAlias 'ritmi'
+            keyPassword 'ritmi-family'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
