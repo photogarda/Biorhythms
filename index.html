@@ -49,6 +49,7 @@ h2{font-size:18px;margin:18px 4px 8px}
 .pill{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:0 14px;min-height:36px;font-size:14px;font-weight:600}
 .pill.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .fig{position:relative;height:min(62vh,460px);min-height:300px;touch-action:pan-y;user-select:none}
+.zoom{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:6px;font-weight:600}.zoom .nb{width:40px;height:36px;font-size:20px;font-weight:700}
 .fig.mini{height:220px;min-height:200px}
 .fig svg{position:absolute;inset:0;width:100%;height:100%;display:block}
 .rows{display:grid;gap:8px}
@@ -158,7 +159,7 @@ en:{
  delQ:n=>`Delete ${n}? This cannot be undone.`,people:'People',
  needName:'Please enter a name and a valid birth date.',
  forecastFor:(n,d)=>`${n}, ${d}`,overallState:'Overall state',
- tapHint:'Tap a day to select it, swipe to move. Tap a rhythm to hide or show it.',
+ tapHint:'Tap a day to select it, swipe to move, pinch with two fingers to zoom. Tap a rhythm to hide or show it.',nDays:n=>`${n} days`,zoomIn:'Zoom in',zoomOut:'Zoom out',
  trendOf:(s,t)=>`${s}, ${t}`,
  prevWeek:'Previous week',nextWeek:'Next week',prevDay:'Previous day',nextDay:'Next day',
  calTitle:'Calendar',critIn:m=>`Critical days in ${m}`,noCrit:'No critical days this month.',
@@ -217,7 +218,7 @@ lv:{
  delQ:n=>`Dzēst ${n}? To nevarēs atsaukt.`,people:'Cilvēki',
  needName:'Lūdzu, ievadiet vārdu un derīgu dzimšanas datumu.',
  forecastFor:(n,d)=>`${n}, ${d}`,overallState:'Kopējais stāvoklis',
- tapHint:'Pieskarieties dienai, lai to izvēlētos, velciet, lai pārvietotos. Pieskarieties ritmam, lai to paslēptu vai parādītu.',
+ tapHint:'Pieskarieties dienai, lai to izvēlētos, velciet, lai pārvietotos, savelciet ar diviem pirkstiem, lai tuvinātu vai tālinātu. Pieskarieties ritmam, lai to paslēptu vai parādītu.',nDays:n=>`${n} ${n%10===1&&n%100!==11?'diena':'dienas'}`,zoomIn:'Tuvināt',zoomOut:'Tālināt',
  trendOf:(s,t)=>`${s}, ${t}`,
  prevWeek:'Iepriekšējā nedēļa',nextWeek:'Nākamā nedēļa',prevDay:'Iepriekšējā diena',nextDay:'Nākamā diena',
  calTitle:'Kalendārs',critIn:m=>`Kritiskās dienas: ${m}`,noCrit:'Šomēnes kritisko dienu nav.',
@@ -356,7 +357,7 @@ function drawChart(svg,o){
   if(labels){
    const[,,d]=ymd(n),we=w>4;
    if(count<=20){s+=`<text x="${x+cw/2}" y="${top+ch+17}" text-anchor="middle" font-size="${cw<26?12:14}" font-weight="${n===sel?800:500}" fill="${we?'var(--accent)':'var(--ink)'}">${d}</text><text x="${x+cw/2}" y="${top+ch+34}" text-anchor="middle" font-size="${cw<26?10:12}" fill="${we?'var(--accent)':'var(--mute)'}">${L.wd[w]}</text>`}
-   else if(d===1||d%5===0)s+=`<text x="${x+cw/2}" y="${top+ch+16}" text-anchor="middle" font-size="12" fill="var(--mute)">${d}</text>`;
+   else if(count<=45?(d===1||(d%5===0&&d<30)):(d===1||d===10||d===20))s+=`<text x="${x+cw/2}" y="${top+ch+16}" text-anchor="middle" font-size="12" fill="var(--mute)" font-weight="${d===1?700:400}">${d===1?L.mon[ymd(n)[1]]:d}</text>`;
   }
  }
  s+=`<line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--mute)" stroke-opacity=".5"/>`;
@@ -365,19 +366,28 @@ function drawChart(svg,o){
  KEYS.forEach((k,j)=>{if(!sh[k])return;const p=P[j];let d='';
   for(let tt=a;tt<=b+1e-9;tt+=step)d+=(d?'L':'M')+X(tt).toFixed(1)+' '+Y(Math.sin(2*Math.PI*tt/p)).toFixed(1);
   s+=`<path d="${d}" fill="none" stroke="${col(k)}" stroke-width="2.6" stroke-linejoin="round"/>`;
-  for(let m=Math.ceil(a/(p/2));m*p/2<=b;m++)s+=`<circle cx="${X(m*p/2).toFixed(1)}" cy="${mid}" r="4.5" fill="var(--card)" stroke="${col(k)}" stroke-width="2.2"/>`;
+  for(let m=Math.ceil(a/(p/2));m*p/2<=b;m++)s+=`<circle cx="${X(m*p/2).toFixed(1)}" cy="${mid}" r="${Math.min(4.5,cw*.35+1.5).toFixed(1)}" fill="var(--card)" stroke="${col(k)}" stroke-width="2.2"/>`;
  });
  svg.innerHTML=s;
 }
 const charts=new Map();
 const ro=new ResizeObserver(es=>es.forEach(e=>{const o=charts.get(e.target);if(o)drawChart(e.target,o)}));
 function mountChart(svg,o){charts.set(svg,o);ro.observe(svg);drawChart(svg,o)}
+const half=c=>Math.floor(c/2);
+function setZoom(o,c,fig){c=Math.max(7,Math.min(91,Math.round(c)));if(c===o.count)return;o.count=c;o.start=sel-half(c);S.settings.days=c;drawChart(fig.querySelector('svg'),o);const z=$('#zoomLbl');if(z)z.textContent=t().nDays(c)}
 function bindSwipe(fig,o,onTap){
- let x0=null,y0=0,moved=false,base=0;
- fig.addEventListener('pointerdown',e=>{x0=e.clientX;y0=e.clientY;moved=false;base=sel});
- fig.addEventListener('pointermove',e=>{if(x0===null)return;const dx=e.clientX-x0;if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(e.clientY-y0)){moved=true;const cw=fig.clientWidth/o.count,sh=-Math.round(dx/cw);if(base+sh!==sel){sel=base+sh;o.start=sel-7;drawChart(fig.querySelector('svg'),o);updateStats()}}});
- const end=e=>{if(x0===null)return;if(!moved&&e.type==='pointerup'){const r=fig.getBoundingClientRect(),i=Math.floor((e.clientX-r.left)/(r.width/o.count));onTap(o.start+i)}else if(moved)setSel(sel);x0=null};
- fig.addEventListener('pointerup',end);fig.addEventListener('pointercancel',end);fig.addEventListener('pointerleave',e=>{if(moved)end(e)});
+ const pts=new Map();let x0=null,y0=0,moved=false,base=0,pinch=null,saveT=0;
+ const dist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y)||1};
+ fig.addEventListener('pointerdown',e=>{pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pts.size===2){pinch={d0:dist(),c0:o.count};x0=null;moved=true}else if(pts.size===1){x0=e.clientX;y0=e.clientY;moved=false;base=sel;pinch=null}});
+ fig.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&pts.size>=2){setZoom(o,pinch.c0*pinch.d0/dist(),fig);return}
+  if(x0===null)return;const dx=e.clientX-x0;if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(e.clientY-y0)){moved=true;const cw=fig.clientWidth/o.count,sh=-Math.round(dx/cw);if(base+sh!==sel){sel=base+sh;o.start=sel-half(o.count);drawChart(fig.querySelector('svg'),o);updateStats()}}});
+ const end=e=>{const had=pts.delete(e.pointerId);if(!had)return;
+  if(pinch){if(pts.size<2){pinch=null;x0=null;persist()}return}
+  if(x0===null)return;if(!moved&&e.type==='pointerup'){const r=fig.getBoundingClientRect(),i=Math.floor((e.clientX-r.left)/(r.width/o.count));onTap(o.start+i)}else if(moved)setSel(sel);x0=null};
+ fig.addEventListener('pointerup',end);fig.addEventListener('pointercancel',end);fig.addEventListener('pointerleave',e=>{if(moved||pinch)end(e)});
+ fig.addEventListener('wheel',e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();setZoom(o,o.count*(e.deltaY>0?1.15:1/1.15),fig);clearTimeout(saveT);saveT=setTimeout(persist,400)},{passive:false});
 }
 
 /* ---------- views ---------- */
@@ -391,15 +401,16 @@ function viewChart(){
  const p=active(),L=t();if(!p)return emptyView();
  const c=calc(dn(p.birth),sel);
  return`<div class="datebar"><button class="nb" id="pw" aria-label="${L.prevWeek}">${ic('dleft')}</button><button class="nb" id="pd" aria-label="${L.prevDay}">${ic('left')}</button><label class="lbl">${fmtMed(sel)}<input type="date" id="dpick" value="${isoOf(sel)}"></label><button class="nb" id="nd" aria-label="${L.nextDay}">${ic('right')}</button><button class="nb" id="nw" aria-label="${L.nextWeek}">${ic('dright')}</button></div>
- <div class="card" style="padding:10px"><div class="fig" id="fig"><svg role="img" aria-label="Biorhythm chart"></svg></div></div>
+ <div class="card" style="padding:10px"><div class="fig" id="fig"><svg role="img" aria-label="Biorhythm chart"></svg></div><div class="zoom"><button class="nb" id="zOut" aria-label="${L.zoomOut}">−</button><span id="zoomLbl" class="muted">${L.nDays(S.settings.days||15)}</span><button class="nb" id="zIn" aria-label="${L.zoomIn}">+</button></div></div>
  <div class="card"><div class="rows" id="stats">${statsHtml(c)}</div>
  <div class="overall" style="margin-top:12px"><span class="muted">${L.overallState} · ${c.n} ${L.daysAlive}</span><span class="big" id="ov">${c.overall.toFixed(1)}%</span></div></div>
  <p class="muted small" style="margin:0 6px">${L.tapHint}</p>`;
 }
 function afterChart(){
  const p=active();if(!p)return;const birth=dn(p.birth);
- const o={start:sel-7,count:15,birth};const fig=$('#fig');mountChart(fig.querySelector('svg'),o);
+ const c0=S.settings.days||15;const o={start:sel-half(c0),count:c0,birth};const fig=$('#fig');mountChart(fig.querySelector('svg'),o);
  bindSwipe(fig,o,n=>setSel(n));
+ $('#zIn').onclick=()=>{setZoom(o,o.count<=15?o.count-4:o.count/1.5,fig);persist()};$('#zOut').onclick=()=>{setZoom(o,o.count<15?o.count+4:o.count*1.5,fig);persist()};
  updateStats=()=>{const c=calc(birth,sel);$('#stats').innerHTML=statsHtml(c);$('#ov').textContent=c.overall.toFixed(1)+'%';$('.lbl').firstChild.textContent=fmtMed(sel)};
  $('#pw').onclick=()=>setSel(sel-7);$('#nw').onclick=()=>setSel(sel+7);$('#pd').onclick=()=>setSel(sel-1);$('#nd').onclick=()=>setSel(sel+1);
  $('#dpick').onchange=e=>{const n=dn(e.target.value);if(n!=null)setSel(n)};
