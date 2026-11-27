@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -65,6 +66,12 @@ public class MainActivity extends Activity {
         if (state == null) web.loadUrl("file:///android_asset/index.html");
         else web.restoreState(state);
         setContentView(web);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration c) {
+        super.onConfigurationChanged(c);
+        web.evaluateJavascript("window.dispatchEvent(new Event('ritmi-theme'))", null);
     }
 
     @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
@@ -155,6 +162,16 @@ public class MainActivity extends Activity {
                 }
                 Reminder.schedule(MainActivity.this);
             });
+        }
+
+        @JavascriptInterface
+        public boolean isDark() {
+            return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        }
+
+        @JavascriptInterface
+        public void setBarColor(String color) {
+            runOnUiThread(() -> { try { getWindow().setStatusBarColor(Color.parseColor(color)); } catch (Exception ignored) { } });
         }
 
         @JavascriptInterface
