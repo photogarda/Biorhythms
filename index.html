@@ -616,7 +616,7 @@ function render(){
  $('#view').innerHTML=ROUTES[r][0]();ROUTES[r][1]();
  const af=$('#addFirst');if(af)af.onclick=()=>editPerson();
 }
-window.addEventListener('hashchange',()=>{if(route()==='calendar'){const[y,m]=ymd(sel);calMonth=y*12+m}render();scrollTo(0,0)});
+window.addEventListener('hashchange',()=>{document.querySelectorAll('.modal').forEach(m=>m.remove());if(route()==='calendar'){const[y,m]=ymd(sel);calMonth=y*12+m}render();scrollTo(0,0)});
 $('#who').onclick=pickPerson;
 $('#btnToday').onclick=()=>{calMonth=null;setSel(todayN())};
 $('#btnShare').onclick=shareDay;
